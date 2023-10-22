@@ -1,8 +1,17 @@
 import random
 import numpy as np
+from scipy.stats import rankdata
+
 class Agent():
     """
-    RANDOM SEARCH AGENT
+    AVERAGE RANK AGENT
+
+    The agent operates based on the average ranking of algorithms on previously seen datasets.
+
+    During the META-TRAINING phase, it ranks the algorithms using their last scores on the TEST learning curves.
+    At the end of the phase, it computes the final averaged rank for each algorithm.
+
+    During the META-TESTING phase, it spends the entire time budget for the highest ranked algorithm
     """
     def __init__(self, number_of_algorithms):
         """
@@ -65,8 +74,7 @@ class Agent():
          '19': {'meta_feature_0': '0', 'meta_feature_1': '1.0'},
          }
         """
-        self.dataset_meta_features = dataset_meta_features
-        self.algorithms_meta_features = algorithms_meta_features
+        self.dataset_metadata = dataset_meta_features
         self.validation_last_scores = [0.0 for i in range(self.nA)]
 
     def meta_train(self, datasets_meta_features, algorithms_meta_features, validation_learning_curves, test_learning_curves):
@@ -104,10 +112,18 @@ class Agent():
         [0.6465293662860659, 0.6465293748988077, 0.6465293748988145, 0.6465293748988159, 0.6465293748988159]
         """
 
-        self.validation_learning_curves = validation_learning_curves
-        self.test_learning_curves = test_learning_curves
-        self.datasets_meta_features = datasets_meta_features
-        self.algorithms_meta_features = algorithms_meta_features
+        #=== Compute the averaged ranking across all meta-training datasets
+        #=== The ranking is built based on the last score of the learning curve
+        global_ranks = []
+        for dataset in test_learning_curves:
+            lc = test_learning_curves[dataset]
+            last_scores = [lc[algo].scores[-1] for algo in lc]
+            dataset_ranks = rankdata(last_scores, method='min')
+            global_ranks.append(dataset_ranks)
+        averaged_ranks = np.array(global_ranks).mean(axis=0)
+
+        #=== Update the current best algorithm
+        self.best_algo = averaged_ranks.argmin()
 
     def suggest(self, observation):
         """
@@ -137,8 +153,12 @@ class Agent():
         >>> action
         (9, 9, 80)
         """
-        #=== Uniformly sampling
-        next_algo_to_reveal = random.randint(0,self.nA-1)
+
+        next_algo_to_reveal = self.best_algo
+
+        #=== Sample delta_t (although the agent's spending all the time budget on only one algoritm,
+        #                    we split it into multiple actions with delta_t is uniformly sampled
+        #                    to have more points on the agents' learning curve)
         delta_t = random.randrange(10, 100, 10)
 
         if observation==None:
@@ -146,7 +166,7 @@ class Agent():
         else:
             A, C_A, R_validation_C_A = observation
             self.validation_last_scores[A] = R_validation_C_A
-            best_algo_for_test = np.argmax(self.validation_last_scores)
+            best_algo_for_test = self.best_algo
 
         action = (best_algo_for_test, next_algo_to_reveal, delta_t)
         return action
