@@ -1,9 +1,6 @@
 import random
 import numpy as np
 class Agent():
-    """
-    RANDOM SEARCH AGENT
-    """
     def __init__(self, number_of_algorithms):
         """
         Initialize the agent
@@ -14,7 +11,8 @@ class Agent():
             The number of algorithms
 
         """
-        self.nA = number_of_algorithms
+        ### TO BE IMPLEMENTED ###
+        pass
 
     def reset(self, dataset_meta_features, algorithms_meta_features):
         """
@@ -65,11 +63,11 @@ class Agent():
          '19': {'meta_feature_0': '0', 'meta_feature_1': '1.0'},
          }
         """
-        self.dataset_meta_features = dataset_meta_features
-        self.algorithms_meta_features = algorithms_meta_features
-        self.validation_last_scores = [0.0 for i in range(self.nA)]
 
-    def meta_train(self, datasets_meta_features, algorithms_meta_features, validation_learning_curves, test_learning_curves):
+        ### TO BE IMPLEMENTED ###
+        pass
+
+    def meta_train(self, dataset_meta_features, algorithms_meta_features, validation_learning_curves, test_learning_curves):
         """
         Start meta-training the agent with the validation and test learning curves
 
@@ -104,10 +102,8 @@ class Agent():
         [0.6465293662860659, 0.6465293748988077, 0.6465293748988145, 0.6465293748988159, 0.6465293748988159]
         """
 
-        self.validation_learning_curves = validation_learning_curves
-        self.test_learning_curves = test_learning_curves
-        self.datasets_meta_features = datasets_meta_features
-        self.algorithms_meta_features = algorithms_meta_features
+        ### TO BE IMPLEMENTED ###
+        pass
 
     def suggest(self, observation):
         """
@@ -137,16 +133,5 @@ class Agent():
         >>> action
         (9, 9, 80)
         """
-        #=== Uniformly sampling
-        next_algo_to_reveal = random.randint(0,self.nA-1)
-        delta_t = random.randrange(10, 100, 10)
-
-        if observation==None:
-            best_algo_for_test = None
-        else:
-            A, C_A, R_validation_C_A = observation
-            self.validation_last_scores[A] = R_validation_C_A
-            best_algo_for_test = np.argmax(self.validation_last_scores)
-
-        action = (best_algo_for_test, next_algo_to_reveal, delta_t)
-        return action
+        ### TO BE IMPLEMENTED ###
+        pass
