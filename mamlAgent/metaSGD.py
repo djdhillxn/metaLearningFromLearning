@@ -7,19 +7,29 @@ import learn2learn as l2l
 
 class Agent():
     """
-    RANDOM SEARCH AGENT
+    META-SGD MAML AGENT
     """
     def __init__(self, number_of_algorithms):
-        """
-        Initialize the agent
-
-        Parameters
-        ----------
-        number_of_algorithms : int
-            The number of algorithms
-
-        """
+        
         self.nA = number_of_algorithms
+        
+        ####################################
+
+        self.algo_name_list = [str(x) for x in range(number_of_algorithms)]
+        self.validation_last_scores = [0.0 for _ in self.algo_name_list]
+        self.ds_feat_keys = [
+            'target_type', 'task', 'feat_type', 'metric',
+            'feat_num', 'target_num', 'label_num', 'train_num',
+            'valid_num', 'test_num', 'has_categorical', 'has_missing',
+            'is_sparse', 'time_budget'
+        ]
+
+        # Initialize the MetaSGD model
+        self.meta_model = MetaSGD(nn.Sequential(nn.Linear(len(self.ds_feat_keys), 128), 
+                                                nn.ReLU(), 
+                                                nn.Linear(128, number_of_algorithms)), lr=0.001)
+        self.optimizer = torch.optim.SGD(self.meta_model.parameters(), lr=0.01, momentum=0.9)
+        self.loss_criterion = nn.CrossEntropyLoss()
 
     def reset(self, dataset_meta_features, algorithms_meta_features):
         """
@@ -70,10 +80,15 @@ class Agent():
          '19': {'meta_feature_0': '0', 'meta_feature_1': '1.0'},
          }
         """
+       
         self.dataset_meta_features = dataset_meta_features
         self.algorithms_meta_features = algorithms_meta_features
         self.validation_last_scores = [0.0 for i in range(self.nA)]
 
+
+    """
+    META-SGD AGENT TRAIN METHOD
+    """
     def meta_train(self, datasets_meta_features, algorithms_meta_features, validation_learning_curves, test_learning_curves):
         """
         Start meta-training the agent with the validation and test learning curves
@@ -108,11 +123,52 @@ class Agent():
         >>> validation_learning_curves['Erik']['0'].scores
         [0.6465293662860659, 0.6465293748988077, 0.6465293748988145, 0.6465293748988159, 0.6465293748988159]
         """
+        
 
+        """
         self.validation_learning_curves = validation_learning_curves
         self.test_learning_curves = test_learning_curves
         self.datasets_meta_features = datasets_meta_features
         self.algorithms_meta_features = algorithms_meta_features
+        """
+
+
+        META_ITERATIONS = 100  # for example
+        INNER_UPDATE_LR = 0.01
+        INNER_EPOCHS = 5
+
+        for meta_iteration in range(META_ITERATIONS):
+            meta_gradient = None  # reset the accumulated gradient
+            for key, ds in validation_learning_curves.items():
+                ds_vector = self._get_dataset_vector(datasets_meta_features[key])
+
+                # Clone the model for inner update
+                learner = self.meta_model.clone()
+
+                for _ in range(INNER_EPOCHS):
+                    # Use the training data to adapt the model
+                    # For this example, we're making the assumption that the validation curves can act as training data
+                    outputs = learner(torch.Tensor([ds_vector]))
+                    loss = self.loss_criterion(outputs, torch.Tensor([int(key)]).long())
+
+                    # Adapt the learner
+                    learner.adapt(loss)
+
+                # After adapting, compute loss on validation data (in our case, it's the test curve)
+                outputs = learner(torch.Tensor([ds_vector]))
+                meta_loss = self.loss_criterion(outputs, torch.Tensor([int(key)]).long())
+
+                # Accumulate the meta-gradient
+                meta_gradient = torch.add(meta_gradient, meta_loss) if meta_gradient is not None else meta_loss
+
+            # Update the model based on the accumulated meta-gradient
+            self.optimizer.zero_grad()
+            meta_gradient.backward()
+            self.optimizer.step()
+    
+    """
+    META SGD SUGGEST 
+    """
 
     def suggest(self, observation):
         """
@@ -142,6 +198,9 @@ class Agent():
         >>> action
         (9, 9, 80)
         """
+        
+        """
+        #RANDOM CHOICE AGENT
         #=== Uniformly sampling
         next_algo_to_reveal = random.randint(0,self.nA-1)
         delta_t = random.randrange(10, 100, 10)
@@ -155,3 +214,32 @@ class Agent():
 
         action = (best_algo_for_test, next_algo_to_reveal, delta_t)
         return action
+        """
+
+        #META-SGD BASED SUGGEST METHOD
+        if observation is not None:
+            A, _, R_validation_C_A = observation
+            self.validation_last_scores[A] = max(self.validation_last_scores[A], R_validation_C_A)
+
+        with torch.no_grad():
+            ds_vector = self._get_dataset_vector(self.current_dataset_meta_features)
+            scores = self.meta_model(torch.Tensor([ds_vector]))
+        
+        # Choose the algorithm based on the output scores
+        _, predicted = torch.max(scores, 1)
+        next_algo_to_reveal = predicted.item()
+        
+        # For simplicity, let's set a constant delta_t
+        delta_t = 10
+        action = (next_algo_to_reveal, next_algo_to_reveal, delta_t)
+        return action
+
+
+    def _get_dataset_vector(self, dataset_meta_features):
+        values = []
+        for k in self.ds_feat_keys:
+            v = key_value_mapping(k, dataset_meta_features[k])
+            values.append(round(v, 6))
+        return values
+
+
