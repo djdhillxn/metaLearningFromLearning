@@ -2,7 +2,7 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-import learn2learn as l2l
+from learn2learn.algorithms.meta_sgd import MetaSGD
 
 
 class Agent():

@@ -2,7 +2,7 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-import learn2learn as l2l
+from learn2learn.algorithms.meta_sgd import MetaSGD
 
 
 class Agent():
@@ -238,8 +238,29 @@ class Agent():
     def _get_dataset_vector(self, dataset_meta_features):
         values = []
         for k in self.ds_feat_keys:
-            v = key_value_mapping(k, dataset_meta_features[k])
+            v = self.key_value_mapping(k, dataset_meta_features[k])
             values.append(round(v, 6))
         return values
+        
+    def key_value_mapping(self, key, value):
+        # Define mappings for each categorical feature
+        mappings = {
+            'target_type': {'Binary': 1, 'Categorical': 2, 'Numerical': 3},
+            'task': {'binary.classification': 1, 'multiclass.classification': 2, 'multilabel.classification': 3, 'regression': 4},
+            'feat_type': {'Binary': 1, 'Categorical': 2, 'Numerical': 3, 'Mixed': 4},
+            'metric': {'bac_metric': 1, 'auc_metric': 2, 'f1_metric': 3, 'pac_metric': 4, 'a_metric': 5, 'r2_metric': 6},
+            'has_categorical': {'1': 1, '0': 0},
+            'has_missing': {'1': 1, '0': 0},
+            'is_sparse': {'1': 1, '0': 0}
+        }
+
+        # Check if the key exists in mappings
+        if key in mappings:
+            return mappings[key].get(value, 0)  # Return 0 for unknown values
+        else:
+            # If key is not in mappings, simply convert the value to float
+            return float(value)
+            
+
 
 
