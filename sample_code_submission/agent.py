@@ -231,10 +231,15 @@ class Agent():
         
         # For simplicity, let's set a constant delta_t
         delta_t = 10
-        action = (next_algo_to_reveal, next_algo_to_reveal, delta_t)
+
+
+
+        action = (best_algo_for_test, next_algo_to_reveal, delta_t)
         return action
 
 
+
+    """
     def _get_dataset_vector(self, dataset_meta_features):
         values = []
         for k in self.ds_feat_keys:
@@ -260,7 +265,4 @@ class Agent():
         else:
             # If key is not in mappings, simply convert the value to float
             return float(value)
-            
-
-
-
+    """         
